@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Meeting Recorder — live</title>
+<style>
+  body { font-family: -apple-system, system-ui, sans-serif; background:#111; color:#eee;
+         display:flex; flex-direction:column; align-items:center; padding:2rem 1rem; }
+  h1 { font-size:1.2rem; margin-bottom:1.5rem; text-align:center; }
+  button { font-size:1.1rem; padding:0.9rem 1.6rem; margin:0.5rem; border:none; border-radius:10px;
+           background:#2563eb; color:#fff; min-width:220px; }
+  button:disabled { background:#444; }
+  #recBtn.active { background:#dc2626; }
+  #status { margin-top:1.5rem; font-size:0.95rem; color:#aaa; text-align:center; }
+  .dot { display:inline-block; width:10px; height:10px; border-radius:50%; background:#555; margin-right:6px; }
+  .dot.on { background:#22c55e; }
+</style>
+</head>
+<body>
+  <h1>Nagrywanie spotkania — podgląd na żywo</h1>
+
+  <button id="connectBtn">Połącz i słuchaj</button>
+  <button id="recBtn" disabled>Nagrywanie: Start</button>
+
+  <div id="status"><span class="dot" id="dot"></span><span id="statusText">Rozłączony</span></div>
+
+<script>
+let ws = null;
+let audioCtx = null;
+let nextStartTime = 0;
+let recording = false;
+
+const connectBtn = document.getElementById('connectBtn');
+const recBtn = document.getElementById('recBtn');
+const statusText = document.getElementById('statusText');
+const dot = document.getElementById('dot');
+
+function setStatus(text, on) {
+  statusText.textContent = text;
+  dot.classList.toggle('on', !!on);
+}
+
+function playChunk(arrayBuffer) {
+  const int16 = new Int16Array(arrayBuffer);
+  const float32 = new Float32Array(int16.length);
+  for (let i = 0; i < int16.length; i++) float32[i] = int16[i] / 32768;
+
+  const sampleRate = 16000;
+  const buffer = audioCtx.createBuffer(1, float32.length, sampleRate);
+  buffer.copyToChannel(float32, 0);
+
+  const src = audioCtx.createBufferSource();
+  src.buffer = buffer;
+  src.connect(audioCtx.destination);
+
+  const now = audioCtx.currentTime;
+  if (nextStartTime < now) nextStartTime = now + 0.05; // mały bufor na jitter sieci
+  src.start(nextStartTime);
+  nextStartTime += buffer.duration;
+}
+
+connectBtn.addEventListener('click', () => {
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  audioCtx.resume();
+
+  ws = new WebSocket(`ws://${location.host}/ws`);
+  ws.binaryType = 'arraybuffer';
+
+  ws.onopen = () => {
+    setStatus('Połączono — odtwarzanie na żywo', true);
+    connectBtn.disabled = true;
+    recBtn.disabled = false;
+    nextStartTime = audioCtx.currentTime;
+  };
+  ws.onclose = () => {
+    setStatus('Rozłączony', false);
+    connectBtn.disabled = false;
+    recBtn.disabled = true;
+  };
+  ws.onerror = () => setStatus('Błąd połączenia', false);
+
+  ws.onmessage = (ev) => {
+    if (ev.data instanceof ArrayBuffer) playChunk(ev.data);
+  };
+});
+
+recBtn.addEventListener('click', () => {
+  if (!ws || ws.readyState !== WebSocket.OPEN) return;
+  recording = !recording;
+  ws.send(recording ? 'REC:START' : 'REC:STOP');
+  recBtn.textContent = recording ? 'Nagrywanie: Stop' : 'Nagrywanie: Start';
+  recBtn.classList.toggle('active', recording);
+});
+</script>
+</body>
+</html>
