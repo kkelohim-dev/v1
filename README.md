@@ -58,6 +58,33 @@ pio device monitor
 5. Kliknij **"Nagrywanie: Start"**, aby dodatkowo zapisać spotkanie na kartę SD
    (pliki `rec_000.wav`, `rec_001.wav`, ...).
 
+## Bezpieczeństwo
+
+Domyślnie skonfigurowane są trzy niezależne warstwy ochrony przed
+podsłuchaniem strumienia audio przez osoby postronne:
+
+1. **Hasło WiFi (WPA2)** — `WIFI_AP_PASSWORD` w `include/config.h`.
+   **Zmień domyślne hasło przed użyciem.**
+2. **Limit 1 połączonego urządzenia** (`WIFI_AP_MAX_CONN`) — dopóki Twój
+   telefon jest podłączony do sieci ESP32, żadne inne urządzenie nie może
+   do niej dołączyć, nawet znając hasło.
+3. **Token aplikacyjny na WebSocket** (`WS_AUTH_TOKEN` w `config.h`,
+   musi być identyczny z `WS_TOKEN` w `data/index.html`) — przeglądarka
+   musi podać poprawny sekret zanim ESP zacznie wysyłać audio; złe/brak
+   tokenu = natychmiastowe rozłączenie klienta.
+
+**Koniecznie zmień oba domyślne sekrety** (`WIFI_AP_PASSWORD` i
+`WS_AUTH_TOKEN`) na własne przed pierwszym użyciem — wartości w repo są
+tylko przykładowe.
+
+Ograniczenia, o których warto wiedzieć:
+- Transmisja to zwykły `ws://` (bez TLS) — w obrębie własnej sieci WPA2 to
+  akceptowalne ryzyko, ale to nie jest szyfrowanie end-to-end.
+- Token w `index.html` jest widoczny w źródle strony dla każdego, kto ją
+  wczyta — to obrona w głąb (utrudnienie), a nie zabezpieczenie kryptograficzne.
+- Najsilniejszą warstwą jest w praktyce limit 1 klienta + hasło WiFi: nikt
+  poza jednym połączonym urządzeniem nie ma w ogóle dostępu do sieci.
+
 ## Uwagi / dostrajanie
 
 - `AUDIO_SHIFT_BITS` w `config.h` reguluje wzmocnienie — jeśli dźwięk jest za

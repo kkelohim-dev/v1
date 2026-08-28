@@ -26,6 +26,9 @@
   <div id="status"><span class="dot" id="dot"></span><span id="statusText">Rozłączony</span></div>
 
 <script>
+// Musi byc identyczny z WS_AUTH_TOKEN w include/config.h
+const WS_TOKEN = 'zmien-ten-tajny-kod';
+
 let ws = null;
 let audioCtx = null;
 let nextStartTime = 0;
@@ -70,6 +73,7 @@ connectBtn.addEventListener('click', () => {
   ws.binaryType = 'arraybuffer';
 
   ws.onopen = () => {
+    ws.send('AUTH:' + WS_TOKEN);
     setStatus('Połączono — odtwarzanie na żywo', true);
     connectBtn.disabled = true;
     recBtn.disabled = false;

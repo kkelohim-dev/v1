@@ -12,12 +12,17 @@
 #include <SD.h>
 #include <LittleFS.h>
 #include <ESPAsyncWebServer.h>
+#include <set>
 
 #include "config.h"
 #include "wav_writer.h"
 
 AsyncWebServer server(80);
 AsyncWebSocket ws("/ws");
+
+// Klienci, ktorzy podali poprawny WS_AUTH_TOKEN — tylko oni dostają
+// audio i moga sterowac nagrywaniem.
+static std::set<uint32_t> authorizedClients;
 
 static int32_t  i2sRawBuf[I2S_READ_SAMPLES];
 static int16_t  pcmBuf[I2S_READ_SAMPLES];
@@ -92,16 +97,30 @@ static void stopRecording() {
 static void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client,
                        AwsEventType type, void *arg, uint8_t *data, size_t len) {
     if (type == WS_EVT_CONNECT) {
-        Serial.printf("[WS] Klient #%u polaczony\n", client->id());
+        Serial.printf("[WS] Klient #%u polaczony (czeka na autoryzacje)\n", client->id());
     } else if (type == WS_EVT_DISCONNECT) {
+        authorizedClients.erase(client->id());
         Serial.printf("[WS] Klient #%u rozlaczony\n", client->id());
     } else if (type == WS_EVT_DATA) {
         AwsFrameInfo *info = (AwsFrameInfo*)arg;
-        if (info->opcode == WS_TEXT) {
-            String msg((char*)data, len);
-            if (msg == "REC:START") startRecording();
-            else if (msg == "REC:STOP") stopRecording();
+        if (info->opcode != WS_TEXT) return;
+        String msg((char*)data, len);
+
+        if (msg == String("AUTH:") + WS_AUTH_TOKEN) {
+            authorizedClients.insert(client->id());
+            Serial.printf("[WS] Klient #%u autoryzowany\n", client->id());
+            return;
         }
+
+        // Kazda inna komenda wymaga wczesniejszej autoryzacji.
+        if (!authorizedClients.count(client->id())) {
+            Serial.printf("[WS] Klient #%u odrzucony - brak/zly token\n", client->id());
+            client->close(1008, "unauthorized");
+            return;
+        }
+
+        if (msg == "REC:START") startRecording();
+        else if (msg == "REC:STOP") stopRecording();
     }
 }
 
@@ -117,7 +136,7 @@ void setup() {
     i2sInit();
 
     WiFi.mode(WIFI_AP);
-    WiFi.softAP(WIFI_AP_SSID, WIFI_AP_PASSWORD);
+    WiFi.softAP(WIFI_AP_SSID, WIFI_AP_PASSWORD, WIFI_AP_CHANNEL, WIFI_AP_HIDDEN, WIFI_AP_MAX_CONN);
     Serial.print("[WiFi] AP uruchomiony, IP: ");
     Serial.println(WiFi.softAPIP());
 
@@ -143,8 +162,12 @@ void loop() {
 
     size_t pcmBytes = samplesRead * sizeof(int16_t);
 
-    if (ws.count() > 0) {
-        ws.binaryAll((uint8_t*)pcmBuf, pcmBytes);
+    if (!authorizedClients.empty()) {
+        for (auto *c : ws.getClients()) {
+            if (authorizedClients.count(c->id())) {
+                c->binary((uint8_t*)pcmBuf, pcmBytes);
+            }
+        }
     }
 
     if (recording) {
