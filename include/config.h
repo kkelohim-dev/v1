@@ -4,7 +4,7 @@
 #define WIFI_AP_SSID     "MeetingRecorder"
 #define WIFI_AP_PASSWORD "nagrywanie123"   // min. 8 znakow, WPA2 — ZMIEN na wlasne!
 #define WIFI_AP_CHANNEL  1
-#define WIFI_AP_HIDDEN   0   // 1 = ukryte SSID (dodatkowa, slaba warstwa)
+#define WIFI_AP_HIDDEN   1   // 1 = ukryte SSID (dodatkowa, slaba warstwa)
 #define WIFI_AP_MAX_CONN 1   // tylko 1 urzadzenie moze byc podlaczone naraz
 
 // Dodatkowy sekret wymagany przez przegladarke zanim ESP zacznie

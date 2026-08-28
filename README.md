@@ -53,6 +53,9 @@ pio device monitor
    - SSID: `MeetingRecorder`
    - hasło: `nagrywanie123` (zmień w `config.h`)
 2. Połącz telefon z tą siecią.
+   - **Sieć jest ukryta** (`WIFI_AP_HIDDEN=1`) — nie pojawi się na liście
+     dostępnych WiFi. Na Androidzie: Ustawienia → WiFi → "Dodaj sieć" →
+     wpisz SSID ręcznie (`MeetingRecorder`) → zabezpieczenia: WPA2 → podaj hasło.
 3. Otwórz w przeglądarce: `http://192.168.4.1/`
 4. Kliknij **"Połącz i słuchaj"** — zaczniesz słyszeć dźwięk na żywo.
 5. Kliknij **"Nagrywanie: Start"**, aby dodatkowo zapisać spotkanie na kartę SD
